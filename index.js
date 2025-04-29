@@ -59,7 +59,7 @@ app.get('/summary', async (req, res) => {
     const sceneItemSummary = sceneItemSettings.map(sis => ({
         scene: sis.scene.sceneName,
         file: sis.sceneItemSettings.inputSettings.local_file || 
-            sis.sceneItemSettings.inputSettings.playlist.map(item => item.value),
+            sis.sceneItemSettings.inputSettings.playlist?.map(item => item.value),
         macro: macros
             .filter(macro => 
                 macro.conditions.find(condition => condition.id === 'date') &&
