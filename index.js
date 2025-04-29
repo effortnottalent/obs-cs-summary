@@ -64,7 +64,7 @@ app.get('/summary', async (req, res) => {
             .filter(macro => 
                 macro.conditions.find(condition => condition.id === 'date') &&
                 macro.actions.find(action => 
-                    action.sceneSelection.name === sis.scene.sceneName))
+                    action.sceneSelection?.name === sis.scene.sceneName))
             .map(macro => ({
                 triggers: (macro.conditions.map(condition => condition.dateTime)).flat(),
                 active: !macro.pause
