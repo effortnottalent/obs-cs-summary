@@ -66,7 +66,8 @@ app.get('/summary', async (req, res) => {
         files: sceneItemSettings
             .filter(sis => sis.sceneUuid === scene.sceneUuid)
             .map(sis => sis.inputSettings.local_file || sis.inputSettings.playlist?.map(item => item.value))
-            .flat(),
+            .flat()
+            .filter(item => item !== null && item !== undefined),
         macro: macros
             .filter(macro => 
                 macro.conditions.find(condition => condition.id === 'date') &&
