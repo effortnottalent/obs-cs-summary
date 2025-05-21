@@ -74,6 +74,7 @@ app.get('/summary', async (req, res) => {
                 macro.actions.find(action => 
                     action.sceneSelection?.name === scene.sceneName))
             .map(macro => ({
+                name: macro.name,
                 triggers: (macro.conditions.map(condition => condition.dateTime)).flat(),
                 active: !macro.pause
             }))
