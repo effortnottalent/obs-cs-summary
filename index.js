@@ -74,7 +74,7 @@ app.get('/summary', async (req, res) => {
 
     const macroSummary = await Promise.all(macros.map(async macro => ({
         name: macro.name,
-        enabled: !macro.paused,
+        enabled: !macro.pause,
         triggers: macro.conditions
             .filter(condition => condition.id === 'date')
             .map(condition => ({
