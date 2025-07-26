@@ -94,7 +94,11 @@ app.get('/summary', async (req, res) => {
                     name: action.macros.map(macro => macro.macro).join(', ')})))
     })));
 
-    res.send(macroSummary);
+    // variables 
+
+    const variables = profileSettings.modules['advanced-scene-switcher'].variables;
+
+    res.send({ macros: macroSummary, variables: variables });
 
 })
 
