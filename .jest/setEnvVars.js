@@ -1,0 +1,1 @@
+process.env.OBS_PREREC_SCENE_PREFIX = 'mock '

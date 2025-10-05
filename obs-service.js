@@ -27,8 +27,6 @@ const connectObs = async () => {
     }
 }
 
-const getSceneList = async () => await obs.call('GetSceneList');
-
 async function getSceneMedia(sceneUuid) {
 
     const sceneItems = (await obs.call('GetSceneItemList', 
@@ -100,18 +98,19 @@ async function summariseMacros(profileSettings) {
 function updatePrerecViaFile(profileSettings, djName, date) {
 
     const macros = profileSettings.modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === `${OBS_PREREC_SCENE_PREFIX}${djName}`);
+        .macros.filter(macro => macro.name === `${process.env.OBS_PREREC_SCENE_PREFIX}${djName}`);
     if(macros.length === 0) {
-        console.error(`Coundn\'t find macro with name ${macroName}`);
+        console.error(`Coundn\'t find macro for dj ${djName}`);
         return;
     }
-    const macro = macros[0];
-    const airTime = macro.condition.dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
-    macro.condition.dateTime = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
+    const condition = macros[0].conditions[0];
+    const airTime = condition.dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
+    condition.dateTime = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
         ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()] + ' ' +
         date.getDate() + ' ' +
-        airTime;
-    return macros;
+        airTime + ' ' +
+        date.getFullYear();
+    return profileSettings;
 
 }
 
