@@ -1,6 +1,5 @@
 const fs = require('node:fs/promises');
-const OBSWebSocket = require('obs-websocket-js').OBSWebSocket
-const obs = new OBSWebSocket();
+const obs = require('./obs-websocket-facade');
 const logic = {
     '0': 'default',
     '100': 'ignore',
@@ -9,7 +8,7 @@ const logic = {
     '103': 'and not',
     '104': 'or not'
 };
-//const exec = require('node:child-process');
+const { exec } = require('child_process');
 let isObsConnected = false;
 
 const connectObs = async () => {
@@ -29,10 +28,10 @@ const connectObs = async () => {
 
 async function getSceneMedia(sceneUuid) {
 
-    const sceneItems = (await obs.call('GetSceneItemList', 
+    const sceneItems = (await obs.getSceneItemList(
         { sceneUuid: sceneUuid })).sceneItems;
     const sceneItemSettingsOutcomes = (await Promise.allSettled(
-        sceneItems.map(async sceneItem => await obs.call('GetInputSettings', 
+        sceneItems.map(async sceneItem => await obs.getInputSettings(
                 { inputUuid: sceneItem.sourceUuid }))));
     const sceneItemSettings = sceneItemSettingsOutcomes
             .filter(outcome => outcome.status === 'fulfilled')
@@ -55,12 +54,11 @@ async function enableMacro(profileSettings, macroName, macroState) {
 
     const macros = profileSettings.modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === macroName);
-    if(macros.length === 0) {
-        res.status(400).send(`Coundn\'t find macro with name ${macroName}`);
-        return;
-    }
+    if(macros.length === 0) 
+        throw new Error(`Coundn't find macro with name ${macroName}`);
     macros.map(macro => macro.pause = !macroState);
     return profileSettings;
+    
 }
 
 const readMacroFile = async () => JSON.parse(
@@ -72,7 +70,7 @@ const writeMacroFile = async (json) =>
 
 async function summariseMacros(profileSettings) {
     const macros = profileSettings.modules['advanced-scene-switcher'].macros;
-    const { scenes } = await obs.call('GetSceneList');
+    const { scenes } = await obs.getSceneList();
     return await Promise.all(macros.map(async macro => ({
         name: macro.name,
         enabled: !macro.pause,
@@ -97,12 +95,11 @@ async function summariseMacros(profileSettings) {
 
 function updatePrerecViaFile(profileSettings, djName, date) {
 
+    const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX}${djName}`;
     const macros = profileSettings.modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === `${process.env.OBS_PREREC_SCENE_PREFIX}${djName}`);
-    if(macros.length === 0) {
-        console.error(`Coundn\'t find macro for dj ${djName}`);
-        return;
-    }
+    if(macros.length === 0) 
+        throw new Error(`Coundn't find macro for name ${macroName}`);
     const condition = macros[0].conditions[0];
     const airTime = condition.dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
     condition.dateTime = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
@@ -115,14 +112,13 @@ function updatePrerecViaFile(profileSettings, djName, date) {
 }
 
 const updatePrerecViaObs = async (djName, path) =>
-    await obs.call('SetInputSettings', { 
+    await obs.setInputSettings({ 
         inputName: process.env.OBS_PREREC_SOURCE_PREFIX + djName, 
         inputSettings: { file: PLAYLIST_PATH + '/' + path }});
 
-/*
 const shutdowonObs = async () => await exec('osascript -e \'quit app "OBS"\'');
 const startupObs = async () => await exec('open -a OBS');
-*/
+
 module.exports = {
     connectObs,
     getSceneMedia,

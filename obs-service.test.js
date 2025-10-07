@@ -1,33 +1,47 @@
+const facade = require('./obs-websocket-facade');
 const service = require('./obs-service');
-jest.mock('obs-websocket-js', () => { return {
-    OBSWebSocket: jest.fn().mockImplementation(() => { return {
-        call: (request, data) => {
-            switch(request) {
-                case 'GetSceneList' : return {
-                    scenes: [{
-                        sceneName: 'mock scene 1',
-                    },{
-                        sceneName: 'mock scene 2',
-                    }]
-                }
-                case 'GetSceneItemList': return {
-                    sceneItems: [{
-                        sourceUuid: 'mock sourceUuid'
-                    }]};
-                case 'GetInputSettings': return {
-                    inputSettings: {
-                        input: 'mock input',
-                        local_file: 'mock local_file',
-                        playlist: [{
-                            value: 'mock value'
-                        }]
-                    }}}}}})}});
+const { exec } = require('child_process');
+const fs = require('fs');
 
-test('get scene media (test mock)', async () => {
+jest.mock('./obs-websocket-facade');
+jest.mock('child_process');
+jest.mock('fs');
+
+beforeEach(() => {
+  jest.resetAllMocks();
+});
+
+test('get scene media - input set', async () => {
+    facade.getSceneItemList.mockImplementation(() => (
+        { sceneItems: [{ sourceUuid: 'mock sourceUuid' }]}));
+    facade.getInputSettings.mockImplementation(() => (
+        { inputSettings: { input: 'mock input' }}));
     expect(await service.getSceneMedia('mock sceneUuid')).toEqual(['mock input']);
 });
 
+test('get scene media - local_file set', async () => {
+    facade.getSceneItemList.mockImplementation(() => (
+        { sceneItems: [{ sourceUuid: 'mock sourceUuid' }]}));
+    facade.getInputSettings.mockImplementation(() => (
+        { inputSettings: { local_file: 'mock local file' }}));
+    expect(await service.getSceneMedia('mock sceneUuid')).toEqual(['mock local file']);
+});
+
+test('get scene media - playlist set', async () => {
+    facade.getSceneItemList.mockImplementation(() => (
+        { sceneItems: [{ sourceUuid: 'mock sourceUuid' }]}));
+    facade.getInputSettings.mockImplementation(() => (
+        { inputSettings: { playlist: [ { value: 'mock entry 1' }, { value: 'mock entry 2' }]}}));
+    expect(await service.getSceneMedia('mock sceneUuid')).toEqual([ 'mock entry 1', 'mock entry 2' ]);
+});
+
 test('summarise all macros', async () => {
+    facade.getInputSettings.mockImplementation(() => (
+        { inputSettings: { input: 'mock input' }}));
+    facade.getSceneItemList.mockImplementation(() => (
+        { sceneItems: [{ sourceUuid: 'mock sourceUuid' }]}));
+    facade.getSceneList.mockImplementation(() => ({
+        scenes: [{ sceneName: 'mock scene 1' },{ sceneName: 'mock scene 2'}]}));
     const profileSettings = JSON.parse(`
 {
     "modules": {
@@ -62,6 +76,10 @@ test('summarise all macros', async () => {
 });
 
 test('summarise with macros rather than media', async () => {
+    facade.getInputSettings.mockImplementation(() => (
+        { inputSettings: { input: 'mock input' }}));
+    facade.getSceneList.mockImplementation(() => ({
+        scenes: [{ sceneName: 'mock scene 1' },{ sceneName: 'mock scene 2'}]}));
     const profileSettings = JSON.parse(`
 {
     "modules": {
