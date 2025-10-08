@@ -118,7 +118,7 @@ const updatePrerecViaObs = async (djName, path) =>
         inputName: process.env.OBS_PREREC_SOURCE_PREFIX + djName, 
         inputSettings: { file: path }});
 
-const shutdowonObs = async () => await exec('osascript -e \'quit app "OBS"\'');
+const shutdownObs = async () => await exec('osascript -e \'quit app "OBS"\'');
 const startupObs = async () => await exec('open -a OBS');
 
 module.exports = {
@@ -132,5 +132,5 @@ module.exports = {
     updatePrerecViaFile,
     updatePrerecViaObs,
     startupObs,
-    shutdowonObs,
+    shutdownObs,
 };

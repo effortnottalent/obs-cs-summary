@@ -1,5 +1,9 @@
 const service = require('./obs-service');
 const handlers = require('./handlers');
+const fs = require('fs');
+jest.mock('fs', () => ({
+    readdirSync: jest.fn().mockResolvedValue()}));
+
 jest.mock('./obs-websocket-facade');
 jest.mock('./obs-service');
 
@@ -114,5 +118,89 @@ test('enable macro but get fields wrong', async () => {
     expect(service.enableMacro).toHaveBeenCalledTimes(0);
     expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
     expect(res.status).toHaveBeenCalledWith(400);
+
+});
+
+test('enable macro but get macro wrong', async () => {
+    const req = {
+        get: (header) => { return process.env.OBS_APIKEY },
+        body: { name: 'macro 1', state: 'enabled' }};
+    const res = mockRes();
+    service.readMacroFile.mockImplementation(() => {});
+    service.enableMacro.mockImplementation(() => { throw new Error() });
+
+    await expect(() => handlers.macroEnable(req, res)).rejects.toThrow(Error);
+
+    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
+    expect(service.enableMacro).toThrow(Error);
+    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
+
+});
+
+test('refresh noop when no files are present', async () => {
+    const req = {
+        get: (header) => { return process.env.OBS_APIKEY }};
+    const res = mockRes();
+    fs.readdirSync.mockImplementation((path, data) => []);
+
+    await handlers.prerecRefresh(req, res);
+
+    expect(fs.readdirSync).toHaveBeenCalledTimes(1);
+    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(0);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
+    expect(service.shutdownObs).toHaveBeenCalledTimes(0);
+    expect(service.readMacroFile).toHaveBeenCalledTimes(0);
+    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
+    expect(service.startupObs).toHaveBeenCalledTimes(0);
+    expect(res.status).toHaveBeenCalledWith(200);
+
+});
+
+test('refresh noop when old files are present', async () => {
+    const req = {
+        get: (header) => { return process.env.OBS_APIKEY }};
+    const res = mockRes();
+    const dateString = new Date(Date.now() - 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    fs.readdirSync.mockImplementation((path, data) => [
+        `./codesouth dj woooo ${dateString}.mp3`
+    ]);
+
+    await handlers.prerecRefresh(req, res);
+
+    expect(fs.readdirSync).toHaveBeenCalledTimes(1);
+    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(0);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
+    expect(service.shutdownObs).toHaveBeenCalledTimes(0);
+    expect(service.readMacroFile).toHaveBeenCalledTimes(0);
+    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
+    expect(service.startupObs).toHaveBeenCalledTimes(0);
+    expect(res.status).toHaveBeenCalledWith(200);
+
+});
+
+test('refresh when new files are present', async () => {
+    const req = {
+        get: (header) => { return process.env.OBS_APIKEY }};
+    const res = mockRes();
+    const dateString1 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    const dateString2 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    fs.readdirSync.mockImplementation((path, data) => [
+        `./codesouth dj woooo ${dateString1}.mp3`,
+        `./codesouth dj woooo ${dateString2}.mp3`,
+    ]);
+
+    await handlers.prerecRefresh(req, res);
+
+    expect(fs.readdirSync).toHaveBeenCalledTimes(1);
+    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(2);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(2);
+    expect(service.shutdownObs).toHaveBeenCalledTimes(1);
+    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
+    expect(service.writeMacroFile).toHaveBeenCalledTimes(1);
+    expect(service.startupObs).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
 
 });
