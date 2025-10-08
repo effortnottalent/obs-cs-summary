@@ -1,4 +1,4 @@
-const fs = require('node:fs/promises');
+const fs = require('fs').promises;
 const obs = require('./obs-websocket-facade');
 const logic = {
     '0': 'default',
@@ -50,7 +50,7 @@ const backupMacroFile = async () =>
         process.env.OBS_SC_PATH, 
         process.env.OBS_SC_PATH + '.' + Date.now());
 
-async function enableMacro(profileSettings, macroName, macroState) {
+function enableMacro(profileSettings, macroName, macroState) {
 
     const macros = profileSettings.modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === macroName);
@@ -64,9 +64,11 @@ async function enableMacro(profileSettings, macroName, macroState) {
 const readMacroFile = async () => JSON.parse(
     await fs.readFile(process.env.OBS_SC_PATH, { encoding: 'utf8' }));
 
-const writeMacroFile = async (json) => 
-    await backupMacroFile() &&
-    await fs.writeFile(profilePath, JSON.stringify(profileSettings, null, 4));
+async function writeMacroFile(profileSettings) { 
+    await backupMacroFile();
+    await fs.writeFile(process.env.OBS_SC_PATH, 
+        JSON.stringify(profileSettings, null, 4));
+}
 
 async function summariseMacros(profileSettings) {
     const macros = profileSettings.modules['advanced-scene-switcher'].macros;
@@ -114,7 +116,7 @@ function updatePrerecViaFile(profileSettings, djName, date) {
 const updatePrerecViaObs = async (djName, path) =>
     await obs.setInputSettings({ 
         inputName: process.env.OBS_PREREC_SOURCE_PREFIX + djName, 
-        inputSettings: { file: PLAYLIST_PATH + '/' + path }});
+        inputSettings: { file: path }});
 
 const shutdowonObs = async () => await exec('osascript -e \'quit app "OBS"\'');
 const startupObs = async () => await exec('open -a OBS');
@@ -129,8 +131,6 @@ module.exports = {
     summariseMacros,
     updatePrerecViaFile,
     updatePrerecViaObs,
-    /*
     startupObs,
     shutdowonObs,
-    */
 };

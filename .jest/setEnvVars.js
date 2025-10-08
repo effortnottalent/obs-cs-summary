@@ -1,1 +1,6 @@
 process.env.OBS_PREREC_SCENE_PREFIX = 'mock '
+process.env.OBS_PREREC_SOURCE_PREFIX = 'mock '
+process.env.OBS_SC_PATH = '/path/to/file.json'
+process.env.OBS_PLAYLIST_PATH = '/playlist/path'
+process.env.HEADER_APIKEY = 'x-mock-header'
+process.env.OBS_APIKEY = 'mock apikey'
