@@ -1,4 +1,4 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const obs = require('./obs-websocket-facade');
 const logic = {
     '0': 'default',
@@ -8,7 +8,9 @@ const logic = {
     '103': 'and not',
     '104': 'or not'
 };
-const { exec } = require('child_process');
+const util = require('node:util');
+const child_process = require('node:child_process');
+const exec = util.promisify(child_process.exec);
 let isObsConnected = false;
 
 const connectObs = async () => {
@@ -45,28 +47,17 @@ async function getSceneMedia(sceneUuid) {
 
 }
 
-const backupMacroFile = async () => 
-    await fs.copyFile(
+const backupMacroFile = () => 
+    fs.copyFileSync(
         process.env.OBS_SC_PATH, 
         process.env.OBS_SC_PATH + '.' + Date.now());
 
-function enableMacro(profileSettings, macroName, macroState) {
+const readMacroFile = () => JSON.parse(
+    fs.readFileSync(process.env.OBS_SC_PATH, { encoding: 'utf8' }));
 
-    const macros = profileSettings.modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === macroName);
-    if(macros.length === 0) 
-        throw new Error(`Coundn't find macro with name ${macroName}`);
-    macros.map(macro => macro.pause = !macroState);
-    return profileSettings;
-    
-}
-
-const readMacroFile = async () => JSON.parse(
-    await fs.readFile(process.env.OBS_SC_PATH, { encoding: 'utf8' }));
-
-async function writeMacroFile(profileSettings) { 
-    await backupMacroFile();
-    await fs.writeFile(process.env.OBS_SC_PATH, 
+function writeMacroFile(profileSettings) { 
+    backupMacroFile();
+    fs.writeFileSync(process.env.OBS_SC_PATH, 
         JSON.stringify(profileSettings, null, 4));
 }
 
@@ -95,42 +86,59 @@ async function summariseMacros(profileSettings) {
                     name: action.macros.map(macro => macro.macro).join(', ')}))})));
 }
 
-function updatePrerecViaFile(profileSettings, djName, date) {
+function updatePrerecViaFile(profileSettings, djName, path, date) {
 
-    const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX}${djName}`;
-    const macros = profileSettings.modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === `${process.env.OBS_PREREC_SCENE_PREFIX}${djName}`);
+    const updatedProfileSettings = profileSettings;
+    const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
+    const macros = updatedProfileSettings.modules['advanced-scene-switcher']
+        .macros.filter(macro => macro.name === macroName);
     if(macros.length === 0) 
         throw new Error(`Coundn't find macro for name ${macroName}`);
     const condition = macros[0].conditions[0];
-    const airTime = condition.dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
-    condition.dateTime = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
-        ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()] + ' ' +
-        date.getDate() + ' ' +
-        airTime + ' ' +
-        date.getFullYear();
-    return profileSettings;
-
+    const airTime = macros[0].conditions[0].dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
+    condition.dateTime = generateDateTimeString(new Date(date), airTime);
+    const sourceName = `${process.env.OBS_PREREC_SOURCE_PREFIX} ${djName}`;
+    const sources = updatedProfileSettings.sources.filter(
+        source => source.name === sourceName);
+    if(sources.length === 0) 
+        throw new Error(`Coundn't find source for name ${macroName}`);
+    sources[0].settings.local_file = `${process.env.PLAYLIST_PATH}/${path}`;
+    return updatedProfileSettings;
 }
 
-const updatePrerecViaObs = async (djName, path) =>
-    await obs.setInputSettings({ 
-        inputName: process.env.OBS_PREREC_SOURCE_PREFIX + djName, 
-        inputSettings: { file: path }});
+const generateDateTimeString = (date, time) => 
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
+    ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()] + ' ' +
+    date.getDate() + ' ' +
+    time + ' ' +
+    date.getFullYear();
 
-const shutdownObs = async () => await exec('osascript -e \'quit app "OBS"\'');
-const startupObs = async () => await exec('open -a OBS');
+const shutdownObs = async () => await exec(`osascript -e '
+try
+    quit app "OBS"
+    on error errMsg number errorNumber
+end try
+repeat until application "OBS" is not running
+    delay .1
+end repeat`);
+const startupObs = async () => await exec(`osascript -t '
+repeat until application "OBS" is running
+    delay .1
+    try
+        tell application "OBS" to activate
+        on error errMsg number errorNumber
+    end try
+end repeat'
+`);
 
 module.exports = {
     connectObs,
     getSceneMedia,
     backupMacroFile,
-    enableMacro,
     readMacroFile,
     writeMacroFile,
     summariseMacros,
     updatePrerecViaFile,
-    updatePrerecViaObs,
     startupObs,
     shutdownObs,
 };

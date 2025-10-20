@@ -19,26 +19,7 @@ async function summary(req, res) {
         .modules['advanced-scene-switcher']
         .variables;
 
-    res.send({ macros: macroSummary, variables: variables });
-}
-
-async function macroEnable(req, res) {
-
-    if(await failsPrecheck(req, res)) return;
-
-    const macroName = req.body.name;
-    const macroState = req.body.state == "enabled" ? 
-        true : req.body.state == "disabled" ? false : null;
-    if(macroState === null) {
-        res.status(400).send('Coundn\'t understand input');
-        return;
-    }
-    const profileSettings = await service.readMacroFile();
-    const updatedProfileSettings = 
-        service.enableMacro(profileSettings, macroName, macroState);
-    await service.writeMacroFile(updatedProfileSettings);
-    res.status(200);
-
+    res.status(200).send({ macros: macroSummary, variables: variables });
 }
 
 async function prerecRefresh(req, res) {
@@ -52,29 +33,29 @@ async function prerecRefresh(req, res) {
             process.env.PLAYLIST_PATH, 
             { recursive: true })
         .map(file => file.match(regex))
+        .filter(matches => matches !== null)
         .filter(([,,airDate]) => Date.parse(airDate) > dateNow);
     if(prerecUpdates.length === 0) {
-        res.status(200).send();
+        res.status(200).send({});
         return;
     }
-    prerecUpdates.map(async ([djName, path]) => 
-        await service.updatePrerecViaObs(djName, path));
-    await service.shutdownObs();
+    try {
+        await service.shutdownObs();
+    } catch (e) {}
     const profileSettings = service.readMacroFile();
-    const updatedProfileSettings = 
-        prerecUpdates.map(async ([djName, date]) => 
-            await service.updatePrerecViaFile(
-                profileSettings, djName, Date.parse(date)));
-    await service.writeMacroFile(updatedProfileSettings);
+    const updatedProfileSettings = prerecUpdates.reduce(
+        (acc, [path, djName, date]) => service.updatePrerecViaFile(
+            profileSettings, djName, path, date),
+        profileSettings);
+    service.writeMacroFile(updatedProfileSettings);
     await service.startupObs();
 
-    res.status(200).send();
+    res.status(200).send({});
 
 }
 
 module.exports = {
     summary,
-    macroEnable,
     prerecRefresh,
     failsPrecheck
 }

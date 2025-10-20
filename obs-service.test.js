@@ -6,10 +6,9 @@ const fs = require('fs');
 jest.mock('./obs-websocket-facade');
 jest.mock('child_process');
 jest.mock('fs', () => ({
-    promises: {
-        writeFile: jest.fn().mockResolvedValue(),
-        copyFile: jest.fn().mockResolvedValue(),
-        readFile: jest.fn().mockResolvedValue() }}));
+    writeFileSync: jest.fn().mockResolvedValue(),
+    copyFileSync: jest.fn().mockResolvedValue(),
+    readFileSync: jest.fn().mockResolvedValue() }));
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -35,8 +34,8 @@ test('don\'t connect to OBS if connected', async () => {
 });
 
 test('backup file appends timestamp', async () => {
-    await service.backupMacroFile();
-    const [actualSource, actualDest] = fs.promises.copyFile.mock.calls[0];
+    service.backupMacroFile();
+    const [actualSource, actualDest] = fs.copyFileSync.mock.calls[0];
     expect(actualSource).toEqual(process.env.OBS_SC_PATH);
     const regex = new RegExp(`^${process.env.OBS_SC_PATH}.\\d{10,}$`);
     expect(actualDest.match(regex)).not.toBeNull();
@@ -44,19 +43,11 @@ test('backup file appends timestamp', async () => {
 
 test('write file makes backup', async () => {
     const json = { a: 1 };
-    await service.writeMacroFile(json);
-    const [actualDest, actualJson] = fs.promises.writeFile.mock.calls[0];
-    expect(fs.promises.copyFile).toHaveBeenCalledTimes(1);
+    service.writeMacroFile(json);
+    const [actualDest, actualJson] = fs.writeFileSync.mock.calls[0];
+    expect(fs.copyFileSync).toHaveBeenCalledTimes(1);
     expect(actualDest).toEqual(process.env.OBS_SC_PATH);
     expect(JSON.parse(actualJson)).toEqual(json);
-});
-
-test('set source path on input', async () => {
-    facade.setInputSettings.mockImplementation((data) => ({}));
-    await service.updatePrerecViaObs('mock dj', '/test/path/to.mp3');
-    const [ data ] = facade.setInputSettings.mock.calls[0];
-    expect(data.inputName).toEqual(process.env.OBS_PREREC_SOURCE_PREFIX + 'mock dj');
-    expect(data.inputSettings.file).toEqual('/test/path/to.mp3');
 });
 
 test('get scene media - input set', async () => {
@@ -160,56 +151,6 @@ test('summarise with macros rather than media', async () => {
     
 });
 
-test('disable macro 1', async () => {
-    const profileSettings = JSON.parse(`
-{
-    "modules": {
-        "advanced-scene-switcher": {
-            "macros": [{
-                "name": "mock macro 1",
-                "pause": false
-            },{
-                "name": "mock macro 2",
-                "pause": false
-            }]
-        }
-    }
-}
-    `);
-    const updatedProfileSettings = 
-        await service.enableMacro(profileSettings, 'mock macro 2', false);
-    expect(updatedProfileSettings
-        .modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === 'mock macro 1')[0]
-        .pause).toEqual(false);
-    expect(updatedProfileSettings
-        .modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === 'mock macro 2')[0]
-        .pause).toEqual(true);
-    
-});
-
-test('disable non-existing macro, nothing should change', async () => {
-    const profileSettings = JSON.parse(`
-{
-    "modules": {
-        "advanced-scene-switcher": {
-            "macros": [{
-                "name": "mock macro 1",
-                "pause": false
-            },{
-                "name": "mock macro 2",
-                "pause": false
-            }]
-        }
-    }
-}
-    `);
-    expect(() => { service.enableMacro(
-        profileSettings, 'mock macro 3', false) })
-            .toThrow(Error);
-});
-
 test('update macro with new date', async () => {
     const profileSettings = JSON.parse(`
 {
@@ -231,20 +172,30 @@ test('update macro with new date', async () => {
                 }]
             }]
         }
-    }
+    },
+    "sources": [{
+        "name": "mock source macro 1",
+        "settings": {
+            "local_file": "/playlist/path/old/path.mp3"
+        }
+    }]
 }
     `);
     const updatedProfileSettings = await service.updatePrerecViaFile(
-        profileSettings, 'macro 1', new Date('2025-11-01'));
+        profileSettings, 'macro 1', 'new/path.mp3', new Date('2025-11-01'));
     expect(updatedProfileSettings
         .modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === 'mock macro 1')[0]
         .conditions[0]
         .dateTime)
         .toEqual('Sat Nov 1 14:42:00 2025');
+    expect(updatedProfileSettings
+        .sources.filter(source => source.name === 'mock source macro 1')[0]
+        .settings
+        .local_file)
+        .toEqual('/playlist/path/new/path.mp3');
     
 });
-
 
 test('update non-existing macro throws exception', async () => {
     const profileSettings = JSON.parse(`
@@ -265,12 +216,18 @@ test('update non-existing macro throws exception', async () => {
                         "macro": "mock scene 2"
                     }]
                 }]
+            }],
+            "sources": [{
+                "name": "mock source macro 1",
+                "settings": {
+                    "local_file": "/old/path.mp3"
+                }
             }]
         }
     }
 }
     `);
-    expect(() => { service.updatePrerecViaFile(
+    expect(() => { service.updatePrerecScheduledDateViaFile(
         profileSettings, 'macro 3', new Date('2025-11-01')) })
             .toThrow(Error);
     

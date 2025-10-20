@@ -71,72 +71,6 @@ test('summary', async () => {
         macros: 'summary', variables: [{ variable: 'value' }]});
 });
 
-test('enable macro', async () => {
-    const profileSettings = JSON.parse(`
-{
-    "modules": {
-        "advanced-scene-switcher": {
-            "variables": [{ "variable": "value" }]
-        }
-    }
-}
-    `);
-    const req = {
-        get: (header) => { return process.env.OBS_APIKEY },
-        body: { name: 'macro 1', state: 'enabled' }};
-    const res = mockRes();
-    service.readMacroFile.mockImplementation(() => profileSettings);
-
-    await handlers.macroEnable(req, res);
-
-    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
-    expect(service.enableMacro).toHaveBeenCalledTimes(1);
-    expect(service.writeMacroFile).toHaveBeenCalledTimes(1);
-    expect(res.status).toHaveBeenCalledWith(200);
-
-});
-
-test('enable macro but get fields wrong', async () => {
-    const profileSettings = JSON.parse(`
-{
-    "modules": {
-        "advanced-scene-switcher": {
-            "variables": [{ "variable": "value" }]
-        }
-    }
-}
-    `);
-    const req = {
-        get: (header) => { return process.env.OBS_APIKEY },
-        body: { name: 'macro 1' }};
-    const res = mockRes();
-    service.readMacroFile.mockImplementation(() => profileSettings);
-
-    await handlers.macroEnable(req, res);
-
-    expect(service.readMacroFile).toHaveBeenCalledTimes(0);
-    expect(service.enableMacro).toHaveBeenCalledTimes(0);
-    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
-    expect(res.status).toHaveBeenCalledWith(400);
-
-});
-
-test('enable macro but get macro wrong', async () => {
-    const req = {
-        get: (header) => { return process.env.OBS_APIKEY },
-        body: { name: 'macro 1', state: 'enabled' }};
-    const res = mockRes();
-    service.readMacroFile.mockImplementation(() => {});
-    service.enableMacro.mockImplementation(() => { throw new Error() });
-
-    await expect(() => handlers.macroEnable(req, res)).rejects.toThrow(Error);
-
-    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
-    expect(service.enableMacro).toThrow(Error);
-    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
-
-});
-
 test('refresh noop when no files are present', async () => {
     const req = {
         get: (header) => { return process.env.OBS_APIKEY }};
@@ -146,9 +80,8 @@ test('refresh noop when no files are present', async () => {
     await handlers.prerecRefresh(req, res);
 
     expect(fs.readdirSync).toHaveBeenCalledTimes(1);
-    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(0);
-    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
     expect(service.shutdownObs).toHaveBeenCalledTimes(0);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
     expect(service.readMacroFile).toHaveBeenCalledTimes(0);
     expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
     expect(service.startupObs).toHaveBeenCalledTimes(0);
@@ -169,9 +102,8 @@ test('refresh noop when old files are present', async () => {
     await handlers.prerecRefresh(req, res);
 
     expect(fs.readdirSync).toHaveBeenCalledTimes(1);
-    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(0);
-    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
     expect(service.shutdownObs).toHaveBeenCalledTimes(0);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(0);
     expect(service.readMacroFile).toHaveBeenCalledTimes(0);
     expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
     expect(service.startupObs).toHaveBeenCalledTimes(0);
@@ -195,9 +127,8 @@ test('refresh when new files are present', async () => {
     await handlers.prerecRefresh(req, res);
 
     expect(fs.readdirSync).toHaveBeenCalledTimes(1);
-    expect(service.updatePrerecViaObs).toHaveBeenCalledTimes(2);
-    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(2);
     expect(service.shutdownObs).toHaveBeenCalledTimes(1);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(2);
     expect(service.readMacroFile).toHaveBeenCalledTimes(1);
     expect(service.writeMacroFile).toHaveBeenCalledTimes(1);
     expect(service.startupObs).toHaveBeenCalledTimes(1);
