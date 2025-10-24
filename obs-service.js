@@ -93,16 +93,20 @@ function updatePrerecViaFile(profileSettings, djName, path, date) {
     const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
     const macros = updatedProfileSettings.modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === macroName);
-    if(macros.length === 0) 
-        throw new Error(`Coundn't find macro for name ${macroName}`);
+    if(macros.length === 0) {
+        console.error(`Couldn't find macro for name ${macroName}, not making changes for ${path}`);
+        return profileSettings;
+    }
     const condition = macros[0].conditions[0];
     const airTime = macros[0].conditions[0].dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
     condition.dateTime = generateDateTimeString(new Date(date), airTime);
     const sourceName = `${process.env.OBS_PREREC_SOURCE_PREFIX} ${djName}`;
     const sources = updatedProfileSettings.sources.filter(
         source => source.name === sourceName);
-    if(sources.length === 0) 
-        throw new Error(`Coundn't find source for name ${macroName}`);
+    if(sources.length === 0) {
+        console.error(`Couldn't find source for name ${macroName}, not making changes for ${path}`);
+        return profileSettings;
+    }
     sources[0].settings.local_file = `${process.env.PLAYLIST_PATH}/${path}`;
     return updatedProfileSettings;
 }

@@ -198,7 +198,7 @@ test('update macro with new date', async () => {
     
 });
 
-test('update non-existing macro throws exception', async () => {
+test('update non-existing macro doesn\'t change file', async () => {
     const profileSettings = JSON.parse(`
 {
     "modules": {
@@ -228,8 +228,8 @@ test('update non-existing macro throws exception', async () => {
     }
 }
     `);
-    expect(() => { service.updatePrerecScheduledDateViaFile(
-        profileSettings, 'macro 3', new Date('2025-11-01')) })
-            .toThrow(Error);
+    const updatedProfileSettings = service.updatePrerecViaFile(
+        profileSettings, 'macro 3', 'new/path.mp3', new Date('2025-11-01'));
+    expect(profileSettings).toEqual(updatedProfileSettings);
     
 });
