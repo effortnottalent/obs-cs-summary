@@ -47,13 +47,14 @@ async function getSceneMedia(sceneUuid) {
 
 }
 
-const backupMacroFile = () => 
+const backupMacroFile = () =>
     fs.copyFileSync(
         process.env.OBS_SC_PATH, 
         process.env.OBS_SC_PATH + '.' + Date.now());
 
 const readMacroFile = () => JSON.parse(
-    fs.readFileSync(process.env.OBS_SC_PATH, { encoding: 'utf8' }));
+    fs.readFileSync(process.env.OBS_SC_PATH, 
+        { encoding: 'utf8' }));
 
 function writeMacroFile(profileSettings) { 
     backupMacroFile();
@@ -88,7 +89,7 @@ async function summariseMacros(profileSettings) {
 
 function updatePrerecViaFile(profileSettings, djName, path, date) {
 
-    const updatedProfileSettings = profileSettings;
+    const updatedProfileSettings = JSON.parse(JSON.stringify(profileSettings));
     const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
     const macros = updatedProfileSettings.modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === macroName);
@@ -120,8 +121,9 @@ try
 end try
 repeat until application "OBS" is not running
     delay .1
-end repeat`);
-const startupObs = async () => await exec(`osascript -t '
+end repeat'
+`);
+const startupObs = async () => await exec(`osascript -e '
 repeat until application "OBS" is running
     delay .1
     try

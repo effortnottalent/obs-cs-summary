@@ -123,15 +123,42 @@ test('refresh when new files are present', async () => {
         `./codesouth dj woooo ${dateString1}.mp3`,
         `./codesouth dj woooo ${dateString2}.mp3`,
     ]);
+    service.readMacroFile.mockImplementation(() => ({ a: 1 }));
+    service.updatePrerecViaFile.mockImplementation(() => ({ b: 2 }));
 
     await handlers.prerecRefresh(req, res);
 
     expect(fs.readdirSync).toHaveBeenCalledTimes(1);
-    expect(service.shutdownObs).toHaveBeenCalledTimes(1);
     expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(2);
     expect(service.readMacroFile).toHaveBeenCalledTimes(1);
+    expect(service.shutdownObs).toHaveBeenCalledTimes(1);
     expect(service.writeMacroFile).toHaveBeenCalledTimes(1);
     expect(service.startupObs).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+
+});
+
+test('don\'t refresh when new files are present but no change to config file', async () => {
+    const req = {
+        get: (header) => { return process.env.OBS_APIKEY }};
+    const res = mockRes();
+    const dateString1 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    const dateString2 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    fs.readdirSync.mockImplementation((path, data) => [
+        `./codesouth dj woooo ${dateString1}.mp3`,
+        `./codesouth dj woooo ${dateString2}.mp3`,
+    ]);
+
+    await handlers.prerecRefresh(req, res);
+
+    expect(fs.readdirSync).toHaveBeenCalledTimes(1);
+    expect(service.updatePrerecViaFile).toHaveBeenCalledTimes(2);
+    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
+    expect(service.shutdownObs).toHaveBeenCalledTimes(0);
+    expect(service.writeMacroFile).toHaveBeenCalledTimes(0);
+    expect(service.startupObs).toHaveBeenCalledTimes(0);
     expect(res.status).toHaveBeenCalledWith(200);
 
 });

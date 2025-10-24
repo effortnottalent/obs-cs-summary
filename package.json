@@ -14,6 +14,7 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "json-diff": "^1.0.6",
     "obs-websocket-js": "^5.0.6",
     "run-applescript": "^7.1.0"
   },

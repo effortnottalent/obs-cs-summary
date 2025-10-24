@@ -183,6 +183,7 @@ test('update macro with new date', async () => {
     `);
     const updatedProfileSettings = await service.updatePrerecViaFile(
         profileSettings, 'macro 1', 'new/path.mp3', new Date('2025-11-01'));
+    expect(profileSettings).not.toEqual(updatedProfileSettings);
     expect(updatedProfileSettings
         .modules['advanced-scene-switcher']
         .macros.filter(macro => macro.name === 'mock macro 1')[0]
