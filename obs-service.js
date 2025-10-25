@@ -104,7 +104,7 @@ function updatePrerecViaFile(profileSettings, djName, path, date) {
     const sources = updatedProfileSettings.sources.filter(
         source => source.name === sourceName);
     if(sources.length === 0) {
-        console.error(`Couldn't find source for name ${macroName}, not making changes for ${path}`);
+        console.error(`Couldn't find source for name ${sourceName}, not making changes for ${path}`);
         return profileSettings;
     }
     sources[0].settings.local_file = `${process.env.PLAYLIST_PATH}/${path}`;
