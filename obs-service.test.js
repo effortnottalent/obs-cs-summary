@@ -217,19 +217,55 @@ test('update non-existing macro doesn\'t change file', async () => {
                         "macro": "mock scene 2"
                     }]
                 }]
-            }],
-            "sources": [{
-                "name": "mock source macro 1",
-                "settings": {
-                    "local_file": "/old/path.mp3"
-                }
             }]
         }
-    }
+    },
+    "sources": [{
+        "name": "mock source macro 1",
+        "settings": {
+            "local_file": "/old/path.mp3"
+        }
+    }]
 }
     `);
     const updatedProfileSettings = service.updatePrerecViaFile(
         profileSettings, 'macro 3', 'new/path.mp3', new Date('2025-11-01'));
+    expect(profileSettings).toEqual(updatedProfileSettings);
+    
+});
+
+test('update non-existing source doesn\'t change file', async () => {
+    const profileSettings = JSON.parse(`
+{
+    "modules": {
+        "advanced-scene-switcher": {
+            "macros": [{
+                "name": "mock macro 1",
+                "pause": false,
+                "conditions": [{
+                    "id": "date",
+                    "dateTime": "Sun Sep 28 14:42:00 2025",
+                    "logic": 0
+                }],
+                "actions": [{
+                    "id": "sequence",
+                    "macros": [{
+                        "macro": "mock scene 2"
+                    }]
+                }]
+            }]
+        }
+    },
+    "sources": [{
+        "name": "mock source macro 2",
+        "settings": {
+            "local_file": "/old/path.mp3"
+        }
+    }]
+}
+    `);
+    const updatedProfileSettings = service.updatePrerecViaFile(
+        profileSettings, 'macro 1', 'new/path.mp3', new Date('2025-11-01'));
     expect(profileSettings).toEqual(updatedProfileSettings);
     
 });
