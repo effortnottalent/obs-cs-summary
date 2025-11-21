@@ -2,6 +2,7 @@ const facade = require('./obs-websocket-facade');
 const service = require('./obs-service');
 const { exec } = require('child_process');
 const fs = require('fs');
+const id3 = require('node-id3');
 
 jest.mock('./obs-websocket-facade');
 jest.mock('child_process');
@@ -9,6 +10,7 @@ jest.mock('fs', () => ({
     writeFileSync: jest.fn().mockResolvedValue(),
     copyFileSync: jest.fn().mockResolvedValue(),
     readFileSync: jest.fn().mockResolvedValue() }));
+jest.mock('node-id3');
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -181,8 +183,15 @@ test('update macro with new date', async () => {
     }]
 }
     `);
+    id3.read.mockImplementation(path => ({
+        userDefinedText: [{
+            description: 'cs_dj_name', value: 'macro 1'
+        }, {
+            description: 'cs_air_date', value: '2025-11-01'
+        }]
+    }));
     const updatedProfileSettings = await service.updatePrerecViaFile(
-        profileSettings, 'macro 1', 'new/path.mp3', new Date('2025-11-01'));
+        profileSettings, 'new/path.mp3');
     expect(profileSettings).not.toEqual(updatedProfileSettings);
     expect(updatedProfileSettings
         .modules['advanced-scene-switcher']
@@ -228,8 +237,15 @@ test('update non-existing macro doesn\'t change file', async () => {
     }]
 }
     `);
+    id3.read.mockImplementation(path => ({
+        userDefinedText: [{
+            description: 'cs_dj_name', value: 'macro 3'
+        }, {
+            description: 'cs_air_date', value: '2025-11-01'
+        }]
+    }));
     const updatedProfileSettings = service.updatePrerecViaFile(
-        profileSettings, 'macro 3', 'new/path.mp3', new Date('2025-11-01'));
+        profileSettings, 'new/path.mp3');
     expect(profileSettings).toEqual(updatedProfileSettings);
     
 });
@@ -264,8 +280,51 @@ test('update non-existing source doesn\'t change file', async () => {
     }]
 }
     `);
+    id3.read.mockImplementation(path => ({
+        userDefinedText: [{
+            description: 'cs_dj_name', value: 'macro 1'
+        }, {
+            description: 'cs_air_date', value: '2025-11-01'
+        }]
+    }));
     const updatedProfileSettings = service.updatePrerecViaFile(
-        profileSettings, 'macro 1', 'new/path.mp3', new Date('2025-11-01'));
+        profileSettings, 'new/path.mp3');
     expect(profileSettings).toEqual(updatedProfileSettings);
+    
+});
+
+
+test('file without id3 doesn\'t change file', async () => {
+    const profileSettings = JSON.parse(`
+{
+    "modules": {
+        "advanced-scene-switcher": {
+            "macros": [{
+                "name": "mock macro 1",
+                "pause": false,
+                "conditions": [{
+                    "id": "date",
+                    "dateTime": "Sun Sep 28 14:42:00 2025",
+                    "logic": 0
+                }],
+                "actions": [{
+                    "id": "sequence",
+                    "macros": [{
+                        "macro": "mock scene 2"
+                    }]
+                }]
+            }]
+        }
+    },
+    "sources": [{
+        "name": "mock source macro 2",
+        "settings": {
+            "local_file": "/old/path.mp3"
+        }
+    }]
+}
+    `);
+    expect(() => service.updatePrerecViaFile(
+        profileSettings, 'new/path.mp3')).toThrow(Error);
     
 });

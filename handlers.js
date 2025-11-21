@@ -27,17 +27,15 @@ async function prerecRefresh(req, res) {
 
     if(await failsPrecheck(req, res)) return;
 
-    const regex = /codesouth (.*) ([0-9\-]+)\.(mp3|m4a)$/;
+    const regex = /.*\.(mp3|m4a)$/;
     console.log(`scanning ${process.env.PLAYLIST_PATH} to find files using regex ${regex}`);
     const dateNow = Date.now();
     const prerecUpdates = fs
         .readdirSync(
             process.env.PLAYLIST_PATH, 
             { recursive: true })
-        .map(file => file.match(regex))
-        .filter(matches => matches !== null)
-        .filter(([,,airDate]) => Date.parse(airDate) > dateNow);
-    console.log(`...found: ${prerecUpdates.map(a => a[0])}`);
+        .filter(file => file.match(regex) !== null)
+    console.log(`...found: ${prerecUpdates}`);
     if(prerecUpdates.length === 0) {
         res.status(200).send({});
         return;
@@ -45,8 +43,7 @@ async function prerecRefresh(req, res) {
 
     const profileSettings = service.readMacroFile();
     const updatedProfileSettings = prerecUpdates.reduce(
-        (acc, [path, djName, date]) => service.updatePrerecViaFile(
-            acc, djName, path, date),
+        (acc, path) => service.updatePrerecViaFile(acc, path),
         profileSettings);
     
     if(jsonDiff.diff(profileSettings, updatedProfileSettings)) {

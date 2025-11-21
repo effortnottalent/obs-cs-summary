@@ -11,6 +11,9 @@ const logic = {
 const util = require('node:util');
 const child_process = require('node:child_process');
 const exec = util.promisify(child_process.exec);
+const id3 = require('node-id3');
+const e = require('express');
+
 let isObsConnected = false;
 
 const connectObs = async () => {
@@ -63,6 +66,7 @@ function writeMacroFile(profileSettings) {
 }
 
 async function summariseMacros(profileSettings) {
+
     const macros = profileSettings.modules['advanced-scene-switcher'].macros;
     const { scenes } = await obs.getSceneList();
     return await Promise.all(macros.map(async macro => ({
@@ -87,8 +91,12 @@ async function summariseMacros(profileSettings) {
                     name: action.macros.map(macro => macro.macro).join(', ')}))})));
 }
 
-function updatePrerecViaFile(profileSettings, djName, path, date) {
+function updatePrerecViaFile(profileSettings, path) {
 
+    const udts = id3.read(path)?.userDefinedText;
+    const [ djName, date ] = [ 'cs_dj_name', 'cs_air_date' ]
+        .map(d => udts.find(u => u.description === d)?.value);
+    if(djName === null || date === null) throw Error(`incorrect id3 information on ${path}`);
     const updatedProfileSettings = JSON.parse(JSON.stringify(profileSettings));
     const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
     const macros = updatedProfileSettings.modules['advanced-scene-switcher']

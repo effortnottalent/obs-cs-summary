@@ -89,15 +89,20 @@ test('refresh noop when no files are present', async () => {
 
 });
 
-test('refresh noop when old files are present', async () => {
+test('refresh when non-music files are present', async () => {
     const req = {
         get: (header) => { return process.env.OBS_APIKEY }};
     const res = mockRes();
-    const dateString = new Date(Date.now() - 24 * 3600 * 2000 * 7)
+    const dateString1 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
+        .toISOString().substring(0,10);
+    const dateString2 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
         .toISOString().substring(0,10);
     fs.readdirSync.mockImplementation((path, data) => [
-        `./codesouth dj woooo ${dateString}.mp3`
+        `./wooo.jpg`,
+        `./yay,tar`,
     ]);
+    service.readMacroFile.mockImplementation(() => ({ a: 1 }));
+    service.updatePrerecViaFile.mockImplementation(() => ({ b: 2 }));
 
     await handlers.prerecRefresh(req, res);
 
@@ -111,7 +116,7 @@ test('refresh noop when old files are present', async () => {
 
 });
 
-test('refresh when new files are present', async () => {
+test('refresh when files are present', async () => {
     const req = {
         get: (header) => { return process.env.OBS_APIKEY }};
     const res = mockRes();
@@ -120,8 +125,8 @@ test('refresh when new files are present', async () => {
     const dateString2 = new Date(Date.now() + 24 * 3600 * 2000 * 7)
         .toISOString().substring(0,10);
     fs.readdirSync.mockImplementation((path, data) => [
-        `./codesouth dj woooo ${dateString1}.mp3`,
-        `./codesouth dj woooo ${dateString2}.mp3`,
+        `./codesouth mix 1.mp3`,
+        `./yay mix.mp3`,
     ]);
     service.readMacroFile.mockImplementation(() => ({ a: 1 }));
     service.updatePrerecViaFile.mockImplementation(() => ({ b: 2 }));
