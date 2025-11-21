@@ -324,7 +324,8 @@ test('file without id3 doesn\'t change file', async () => {
     }]
 }
     `);
-    expect(() => service.updatePrerecViaFile(
-        profileSettings, 'new/path.mp3')).toThrow(Error);
+    const updatedProfileSettings = service.updatePrerecViaFile(
+        profileSettings, 'new/path.mp3');
+    expect(profileSettings).toEqual(updatedProfileSettings);
     
 });

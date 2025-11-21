@@ -93,10 +93,14 @@ async function summariseMacros(profileSettings) {
 
 function updatePrerecViaFile(profileSettings, path) {
 
-    const udts = id3.read(path)?.userDefinedText;
+    const udts = id3.read(process.env.PLAYLIST_PATH + '/' + path)?.userDefinedText;
     const [ djName, date ] = [ 'cs_dj_name', 'cs_air_date' ]
-        .map(d => udts.find(u => u.description === d)?.value);
-    if(djName === null || date === null) throw Error(`incorrect id3 information on ${path}`);
+        .map(d => udts?.find(u => u.description === d)?.value);
+    if(djName === undefined || date === undefined) {
+        console.warn(`no id3 information on ${path}`);
+        return profileSettings;
+    }
+    console.log(`found entry on ${path} for ${djName} at ${date}`);
     const updatedProfileSettings = JSON.parse(JSON.stringify(profileSettings));
     const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
     const macros = updatedProfileSettings.modules['advanced-scene-switcher']
@@ -112,7 +116,7 @@ function updatePrerecViaFile(profileSettings, path) {
     const sources = updatedProfileSettings.sources.filter(
         source => source.name === sourceName);
     if(sources.length === 0) {
-        console.error(`Couldn't find source for name ${sourceName}, not making changes for ${path}`);
+        console.warn(`Couldn't find source for name ${sourceName}, not making changes for ${path}`);
         return profileSettings;
     }
     sources[0].settings.local_file = `${process.env.PLAYLIST_PATH}/${path}`;
