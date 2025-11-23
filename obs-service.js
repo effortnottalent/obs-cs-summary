@@ -139,14 +139,8 @@ repeat until application "OBS" is not running
     delay .1
 end repeat'
 `);
-const startupObs = async () => await exec(`osascript -e '
-repeat until application "OBS" is running
-    delay .1
-    try
-        tell application "OBS" to activate
-        on error errMsg number errorNumber
-    end try
-end repeat'
+const startupObs = async () => await exec(`
+open -a "OBS" --args --startstreaming --disable-updater --disable-missing-files-check
 `);
 
 module.exports = {
