@@ -16,53 +16,19 @@ async function summary(req, res) {
 
     const profileSettings = await service.readMacroFile();
     const macroSummary = await service.summariseMacros(profileSettings);
+    const mp3Calendar = service.getCalendarFromMp3s();
     const variables = profileSettings
         .modules['advanced-scene-switcher']
         .variables;
 
-    res.status(200).send({ macros: macroSummary, variables: variables });
-}
-
-async function prerecRefresh(req, res) {
-
-    if(await failsPrecheck(req, res)) return;
-
-    const regex = /.*\.(mp3|m4a)$/;
-    console.log(`scanning ${process.env.PLAYLIST_PATH} to find files using regex ${regex}`);
-    const dateNow = Date.now();
-    const prerecUpdates = fs
-        .readdirSync(
-            process.env.PLAYLIST_PATH, 
-            { recursive: true })
-        .filter(file => file.match(regex) !== null)
-    console.log(`...found: ${prerecUpdates}`);
-    if(prerecUpdates.length === 0) {
-        res.status(200).send({});
-        return;
-    }
-
-    const profileSettings = service.readMacroFile();
-    const updatedProfileSettings = prerecUpdates.reduce(
-        (acc, path) => service.updatePrerecViaFile(acc, path),
-        profileSettings);
-    
-    if(jsonDiff.diff(profileSettings, updatedProfileSettings)) {
-        console.log('updates made! restarting OBS');
-        try {
-            await service.shutdownObs();
-        } catch (e) {}
-        service.writeMacroFile(updatedProfileSettings);
-        await service.startupObs();
-    } else {
-        console.log('no changes, not restarting OBS');
-    }
-
-    res.status(200).send({});
-
+    res.status(200).send({ 
+        macros: macroSummary, 
+        variables: variables, 
+        calendar: mp3Calendar  
+    });
 }
 
 module.exports = {
     summary,
-    prerecRefresh,
     failsPrecheck
 }

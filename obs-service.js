@@ -50,20 +50,9 @@ async function getSceneMedia(sceneUuid) {
 
 }
 
-const backupMacroFile = () =>
-    fs.copyFileSync(
-        process.env.OBS_SC_PATH, 
-        process.env.OBS_SC_PATH + '.' + Date.now());
-
 const readMacroFile = () => JSON.parse(
     fs.readFileSync(process.env.OBS_SC_PATH, 
         { encoding: 'utf8' }));
-
-function writeMacroFile(profileSettings) { 
-    backupMacroFile();
-    fs.writeFileSync(process.env.OBS_SC_PATH, 
-        JSON.stringify(profileSettings, null, 4));
-}
 
 async function summariseMacros(profileSettings) {
 
@@ -91,33 +80,23 @@ async function summariseMacros(profileSettings) {
                     name: action.macros.map(macro => macro.macro).join(', ')}))})));
 }
 
-function updatePrerecViaFile(profileSettings, path) {
+function getCalendarFromMp3s() {
 
-    const udts = id3.read(path)?.userDefinedText;
-    const [ djName, date ] = [ 'cs_dj_name', 'cs_air_date' ]
-        .map(d => udts.find(u => u.description === d)?.value);
-    if(djName === null || date === null) throw Error(`incorrect id3 information on ${path}`);
-    const updatedProfileSettings = JSON.parse(JSON.stringify(profileSettings));
-    const macroName = `${process.env.OBS_PREREC_SCENE_PREFIX} ${djName}`;
-    const macros = updatedProfileSettings.modules['advanced-scene-switcher']
-        .macros.filter(macro => macro.name === macroName);
-    if(macros.length === 0) {
-        console.error(`Couldn't find macro for name ${macroName}, not making changes for ${path}`);
-        return profileSettings;
-    }
-    const condition = macros[0].conditions[0];
-    const airTime = macros[0].conditions[0].dateTime.match(/\d{2}:\d{2}:\d{2}/)[0];
-    condition.dateTime = generateDateTimeString(new Date(date), airTime);
-    const sourceName = `${process.env.OBS_PREREC_SOURCE_PREFIX} ${djName}`;
-    const sources = updatedProfileSettings.sources.filter(
-        source => source.name === sourceName);
-    if(sources.length === 0) {
-        console.error(`Couldn't find source for name ${sourceName}, not making changes for ${path}`);
-        return profileSettings;
-    }
-    sources[0].settings.local_file = `${process.env.PLAYLIST_PATH}/${path}`;
-    return updatedProfileSettings;
+    const regex = /.*\.(mp3|m4a)$/;
+    console.log(`scanning ${process.env.PLAYLIST_PATH} to find files using regex ${regex}`);
+    const mp3s = fs
+        .readdirSync(
+            process.env.PLAYLIST_PATH, 
+            { recursive: true })
+        .filter(file => file.match(regex) !== null)
+    return mp3s.map(mp3 => {
+        const udts = id3.read(mp3)?.userDefinedText;
+        const [ djName, date, slot ] = [ 'DJ', 'Air Date', 'Slot' ]
+            .map(d => udts.find(u => u.description === d)?.value);
+        if(djName !== null || date !== null) return { file: mp3, djName: djName, date: date, slot: slot };
+    });
 }
+
 
 const generateDateTimeString = (date, time) => 
     ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()] + ' ' + 
@@ -126,33 +105,11 @@ const generateDateTimeString = (date, time) =>
     time + ' ' +
     date.getFullYear();
 
-const shutdownObs = async () => await exec(`osascript -e '
-try
-    quit app "OBS"
-    on error errMsg number errorNumber
-end try
-repeat until application "OBS" is not running
-    delay .1
-end repeat'
-`);
-const startupObs = async () => await exec(`osascript -e '
-repeat until application "OBS" is running
-    delay .1
-    try
-        tell application "OBS" to activate
-        on error errMsg number errorNumber
-    end try
-end repeat'
-`);
 
 module.exports = {
     connectObs,
     getSceneMedia,
-    backupMacroFile,
     readMacroFile,
-    writeMacroFile,
     summariseMacros,
-    updatePrerecViaFile,
-    startupObs,
-    shutdownObs,
+    getCalendarFromMp3s,
 };
