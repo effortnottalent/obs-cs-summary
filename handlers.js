@@ -14,19 +14,16 @@ async function summary(req, res) {
     
     if(await failsPrecheck(req, res)) return;
 
+    console.log(`generating summary from ${process.env.OBS_SC_PATH} and mp3s uploaded`);
     const profileSettings = await service.readMacroFile();
-    const macroSummary = await service.summariseMacros(profileSettings);
-    console
-    const mp3Calendar = service.getMp3Calendar();
-    const variables = profileSettings
-        .modules['advanced-scene-switcher']
-        .variables;
-
+    const summary = (await service.summariseMacros(profileSettings));
     res.status(200).send({ 
-        currentScene: macroSummary.currentProgramSceneName,
-        macros: macroSummary.summary, 
-        variables: variables, 
-        calendar: mp3Calendar  
+        currentScene: summary.currentProgramSceneName,
+        macros: summary.summary, 
+        variables: profileSettings
+            .modules['advanced-scene-switcher']
+            .variables, 
+        calendar: service.getMp3Calendar()  
     });
 }
 

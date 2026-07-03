@@ -16,6 +16,7 @@ beforeEach(() => {
 test('no need for generate if there\'s no new mp3s', () => {
 
     fs.readdirSync.mockReturnValue(['mock.mp3']);
+    fs.existsSync.mockReturnValue(true);
     const fsMock = fs.statSync
         .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') })
         .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') });
@@ -28,9 +29,20 @@ test('no need for generate if there\'s no new mp3s', () => {
 
 });
 
+test('generate if there\'s no calendar file', () => {
+
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
+    fs.existsSync.mockReturnValue(false);
+    const needed = service.isCalendarRefreshNeeded();
+    expect(needed).toEqual(true);
+    expect(fs.statSync).toHaveBeenCalledTimes(0);
+
+});
+
 test('need for generate if there is a new mp3', () => {
 
     fs.readdirSync.mockReturnValue(['mock.mp3']);
+    fs.existsSync.mockReturnValue(true);
     const fsMock = fs.statSync
         .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') })
         .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') });
@@ -59,6 +71,7 @@ test('get calendar info from mp3s', () => {
 
 test('generate calendar if needed', () => {
     fs.readdirSync.mockReturnValue(['mock.mp3']);
+    fs.existsSync.mockReturnValue(true);
     const fsMock = fs.statSync
         .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') })
         .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') });
@@ -71,6 +84,7 @@ test('generate calendar if needed', () => {
 
 test('read file if calendar not needed', () => {
     fs.readdirSync.mockReturnValue(['mock.mp3']);
+    fs.existsSync.mockReturnValue(true);
     const fsMock = fs.statSync
         .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') })
         .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') });

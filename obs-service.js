@@ -57,6 +57,7 @@ const readMacroFile = () => JSON.parse(
 
 async function summariseMacros(profileSettings) {
 
+    console.log('generating summary from profile json');
     const macros = profileSettings.modules['advanced-scene-switcher'].macros;
     const { scenes, currentProgramSceneName } = await obs.getSceneList();
     return ({
@@ -89,6 +90,7 @@ async function summariseMacros(profileSettings) {
 function isCalendarRefreshNeeded() {
     
     const calendarFile = process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE;
+    if(!fs.existsSync(calendarFile)) return true;
     const calendarFileMTime = fs.statSync(calendarFile).mtime;    
     const mp3s = getMp3Files()
         .filter(file => fs.statSync(process.env.PLAYLIST_PATH + '/' + file)
@@ -108,17 +110,18 @@ function getMp3Files() {
 
 function getMp3Calendar() {
 
+    console.log('getting calendar');
+    const mp3CalendarPath = process.env.PLAYLIST_PATH + '/' + 
+        process.env.MP3_CALENDAR_FILE;
     if(isCalendarRefreshNeeded()) {
-        console.log('calendar refresh needed');
+        console.log(`calendar refresh needed, generating to ${mp3CalendarPath}`);
         const mp3Calendar = refreshCalendarFromMp3s();
-        fs.writeFileSync(
-            process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE, 
+        fs.writeFileSync(mp3CalendarPath, 
             JSON.stringify(mp3Calendar, null, 2));
         return mp3Calendar;
     } else {
-        console.log('calendar refresh not needed');
-        return JSON.parse(fs.readFileSync(
-            process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE, 
+        console.log(`calendar refresh not needed, serving from ${mp3CalendarPath}`);
+        return JSON.parse(fs.readFileSync(mp3CalendarPath, 
             { encoding: 'utf8' }));
     }
 }
