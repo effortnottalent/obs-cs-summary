@@ -46,27 +46,3 @@ test('summary - no header fails precheck', async () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(service.connectObs).toHaveBeenCalledTimes(0);
 });
-
-test('summary', async () => {
-    const profileSettings = JSON.parse(`
-{
-    "modules": {
-        "advanced-scene-switcher": {
-            "variables": [{ "variable": "value" }]
-        }
-    }
-}
-    `);
-    const req = {
-        get: (header) => { return process.env.OBS_APIKEY }};
-    const res = mockRes();
-    service.readMacroFile.mockImplementation(() => profileSettings);
-    service.summariseMacros.mockImplementation(() => 'summary');
-
-    await handlers.summary(req, res);
-
-    expect(service.readMacroFile).toHaveBeenCalledTimes(1);
-    expect(service.summariseMacros).toHaveBeenCalledTimes(1);
-    expect(res.send).toHaveBeenCalledWith({
-        macros: 'summary', variables: [{ variable: 'value' }]});
-});

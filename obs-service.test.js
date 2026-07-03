@@ -13,23 +13,72 @@ beforeEach(() => {
   jest.resetAllMocks();
 });
 
-test('get schedule details from mp3', () => {
+test('no need for generate if there\'s no new mp3s', () => {
 
-    fs.readdirSync.mockReturnValue(['mock.mp3', 'not-mock.txt']);
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
+    const fsMock = fs.statSync
+        .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') })
+        .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') });
+    const needed = service.isCalendarRefreshNeeded();
+    expect(needed).toEqual(false);
+    expect(fsMock).toHaveBeenNthCalledWith(1, 
+        process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE);
+    expect(fsMock).toHaveBeenNthCalledWith(2, 
+        process.env.PLAYLIST_PATH + '/mock.mp3');
+
+});
+
+test('need for generate if there is a new mp3', () => {
+
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
+    const fsMock = fs.statSync
+        .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') })
+        .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') });
+    const needed = service.isCalendarRefreshNeeded();
+    expect(needed).toEqual(true);
+    expect(fsMock).toHaveBeenNthCalledWith(1, 
+        process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE);
+    expect(fsMock).toHaveBeenNthCalledWith(2, 
+        process.env.PLAYLIST_PATH + '/mock.mp3');
+
+});
+
+test('get calendar info from mp3s', () => {
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
     id3.read.mockReturnValue({
         userDefinedText: [
-            { description: 'DJ', value: 'slipmatt' },
-            { description: 'Air Date', value: '2026-06-03' },
-            { description: 'Slot', value: 11 }
+            { description: 'CS scheduling json', value: '{"DJ":"mock DJ","Air Date":"mock date","Slot":"mock slot"}' }
         ]
     });
-    const calendar = service.getCalendarFromMp3s();
-    expect(calendar).toEqual([{
-        file: 'mock.mp3',
-        djName: 'slipmatt',
-        date: '2026-06-03',
-        slot: 11
-    }]);
+    const calendar = service.refreshCalendarFromMp3s();
+    expect(calendar[0].file).toEqual('mock.mp3');
+    expect(calendar[0].djName).toEqual('mock DJ');
+    expect(calendar[0].date).toEqual('mock date');
+    expect(calendar[0].slot).toEqual('mock slot');
+});
+
+test('generate calendar if needed', () => {
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
+    const fsMock = fs.statSync
+        .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') })
+        .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') });
+    fs.writeFileSync = jest.fn();
+    service.getMp3Calendar();
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
+    expect(fs.readFileSync).toHaveBeenCalledTimes(0);
+    jest.restoreAllMocks();
+});
+
+test('read file if calendar not needed', () => {
+    fs.readdirSync.mockReturnValue(['mock.mp3']);
+    const fsMock = fs.statSync
+        .mockReturnValueOnce({ mtime: new Date('2026-06-03T12:00:00Z') })
+        .mockReturnValueOnce({ mtime: new Date('2026-06-02T12:00:00Z') });
+    fs.readFileSync = jest.fn().mockReturnValue('{}');
+    const calendar = service.getMp3Calendar();
+    expect(fs.writeFileSync).toHaveBeenCalledTimes(0);
+    expect(fs.readFileSync).toHaveBeenCalledTimes(1);
+    expect(calendar).toEqual({});
 });
 
 test('connect to OBS if not connected', async () => {
@@ -81,7 +130,10 @@ test('summarise all macros', async () => {
     facade.getSceneItemList.mockImplementation(() => (
         { sceneItems: [{ sourceUuid: 'mock sourceUuid' }]}));
     facade.getSceneList.mockImplementation(() => ({
-        scenes: [{ sceneName: 'mock scene 1' },{ sceneName: 'mock scene 2'}]}));
+        scenes: [{ sceneName: 'mock scene 1' },{ 
+            sceneName: 'mock scene 2',
+            sceneUuid: 'mock sceneUuid'
+    }]}));
     const profileSettings = JSON.parse(`
 {
     "modules": {
@@ -106,12 +158,12 @@ test('summarise all macros', async () => {
 }
     `);
     const summary = await service.summariseMacros(profileSettings);
-    expect(summary[0].name).toEqual('mock macro 1');
-    expect(summary[0].enabled).toEqual(true);
-    expect(summary[0].scenes[0].name).toEqual('mock scene 2');
-    expect(summary[0].scenes[0].media[0]).toEqual('mock input');
-    expect(summary[0].triggers[0].time).toEqual('Sun Sep 28 14:42:00 2025');
-    expect(summary[0].triggers[0].logic).toEqual('default');
+    expect(summary.summary[0].name).toEqual('mock macro 1');
+    expect(summary.summary[0].enabled).toEqual(true);
+    expect(summary.summary[0].scenes[0].name).toEqual('mock scene 2');
+    expect(summary.summary[0].scenes[0].media[0]).toEqual('mock input');
+    expect(summary.summary[0].triggers[0].time).toEqual('Sun Sep 28 14:42:00 2025');
+    expect(summary.summary[0].triggers[0].logic).toEqual('default');
     
 });
 
@@ -144,10 +196,10 @@ test('summarise with macros rather than media', async () => {
 }
     `);
     const summary = await service.summariseMacros(profileSettings);
-    expect(summary[0].name).toEqual('mock macro 1');
-    expect(summary[0].enabled).toEqual(true);
-    expect(summary[0].triggers[0].time).toEqual('Sun Sep 28 14:42:00 2025');
-    expect(summary[0].triggers[0].logic).toEqual('default');
-    expect(summary[0].macros[0].name).toEqual('mock scene 2');
+    expect(summary.summary[0].name).toEqual('mock macro 1');
+    expect(summary.summary[0].enabled).toEqual(true);
+    expect(summary.summary[0].triggers[0].time).toEqual('Sun Sep 28 14:42:00 2025');
+    expect(summary.summary[0].triggers[0].logic).toEqual('default');
+    expect(summary.summary[0].macros[0].name).toEqual('mock scene 2');
     
 });

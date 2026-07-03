@@ -16,13 +16,15 @@ async function summary(req, res) {
 
     const profileSettings = await service.readMacroFile();
     const macroSummary = await service.summariseMacros(profileSettings);
-    const mp3Calendar = service.getCalendarFromMp3s();
+    console
+    const mp3Calendar = service.getMp3Calendar();
     const variables = profileSettings
         .modules['advanced-scene-switcher']
         .variables;
 
     res.status(200).send({ 
-        macros: macroSummary, 
+        currentScene: macroSummary.currentProgramSceneName,
+        macros: macroSummary.summary, 
         variables: variables, 
         calendar: mp3Calendar  
     });

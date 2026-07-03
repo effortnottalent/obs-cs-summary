@@ -33,6 +33,7 @@ const connectObs = async () => {
 
 async function getSceneMedia(sceneUuid) {
 
+    if(sceneUuid === null || sceneUuid === undefined) return [];
     const sceneItems = (await obs.getSceneItemList(
         { sceneUuid: sceneUuid })).sceneItems;
     const sceneItemSettingsOutcomes = (await Promise.allSettled(
@@ -57,44 +58,87 @@ const readMacroFile = () => JSON.parse(
 async function summariseMacros(profileSettings) {
 
     const macros = profileSettings.modules['advanced-scene-switcher'].macros;
-    const { scenes } = await obs.getSceneList();
-    return await Promise.all(macros.map(async macro => ({
-        name: macro.name,
-        enabled: !macro.pause,
-        triggers: macro.conditions
-            .filter(condition => condition.id === 'date')
-            .map(condition => ({
-                time: condition.dateTime,
-                logic: logic[condition.logic]
-            })),
-        scenes: await Promise.all(macro.actions
-            .filter(action => action.id === 'scene_switch')
-            .map(async action => ({
-                name: action.sceneSelection.name,
-                media: await getSceneMedia(
-                    scenes.find(scene => scene.sceneName === 
-                        action.sceneSelection.name).sceneUuid)}))),
-        macros: macro.actions
-            .filter(action => action.id === 'sequence')
-            .map(action => ({
-                    name: action.macros.map(macro => macro.macro).join(', ')}))})));
+    const { scenes, currentProgramSceneName } = await obs.getSceneList();
+    return ({
+        currentProgramSceneName: currentProgramSceneName, 
+        summary: await Promise.all(macros.map(async macro => ({
+            name: macro.name,
+            enabled: !macro.pause,
+            triggers: macro.conditions ? macro.conditions
+                .filter(condition => condition.id === 'date')
+                .map(condition => ({
+                    time: condition.dateTime,
+                    logic: logic[condition.logic]
+                })) : [],
+            scenes: macro.actions ? await Promise.all(macro.actions
+                .filter(action => action.id === 'scene_switch')
+                .map(async action => ({
+                    name: action.sceneSelection.name,
+                    //media: "mock input"
+                    media: await getSceneMedia(
+                        scenes.find(scene => scene.sceneName === 
+                            action.sceneSelection.name)?.sceneUuid)
+                }))) : [],
+            macros: macro.actions ? macro.actions
+                .filter(action => action.id === 'sequence')
+                .map(action => ({
+                        name: action.macros.map(macro => macro.macro).join(', ')})) : []
+        })))});
 }
 
-function getCalendarFromMp3s() {
+function isCalendarRefreshNeeded() {
+    
+    const calendarFile = process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE;
+    const calendarFileMTime = fs.statSync(calendarFile).mtime;    
+    const mp3s = getMp3Files()
+        .filter(file => fs.statSync(process.env.PLAYLIST_PATH + '/' + file)
+            .mtime > calendarFileMTime);
+    return mp3s.length > 0;
 
+}
+
+function getMp3Files() {
     const regex = /.*\.(mp3|m4a)$/;
-    console.log(`scanning ${process.env.PLAYLIST_PATH} to find files using regex ${regex}`);
-    const mp3s = fs
+    return fs
         .readdirSync(
             process.env.PLAYLIST_PATH, 
-            { recursive: true })
-        .filter(file => file.match(regex) !== null)
-    return mp3s.map(mp3 => {
-        const udts = id3.read(mp3)?.userDefinedText;
-        const [ djName, date, slot ] = [ 'DJ', 'Air Date', 'Slot' ]
-            .map(d => udts.find(u => u.description === d)?.value);
-        if(djName !== null || date !== null) return { file: mp3, djName: djName, date: date, slot: slot };
-    });
+            { recursive: false })
+        .filter(file => file.match(regex) !== null);
+}
+
+function getMp3Calendar() {
+
+    if(isCalendarRefreshNeeded()) {
+        console.log('calendar refresh needed');
+        const mp3Calendar = refreshCalendarFromMp3s();
+        fs.writeFileSync(
+            process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE, 
+            JSON.stringify(mp3Calendar, null, 2));
+        return mp3Calendar;
+    } else {
+        console.log('calendar refresh not needed');
+        return JSON.parse(fs.readFileSync(
+            process.env.PLAYLIST_PATH + '/' + process.env.MP3_CALENDAR_FILE, 
+            { encoding: 'utf8' }));
+    }
+}
+
+function refreshCalendarFromMp3s() {
+
+    return getMp3Files().map(mp3 => {
+        const udts = id3.read(process.env.PLAYLIST_PATH + '/' + mp3)?.userDefinedText;
+        if(udts === null || udts === undefined) return null;
+        const mp3Info = udts.find(u => u.description === 'CS scheduling json')?.value;
+        if(mp3Info !== null && mp3Info !== undefined) {
+            const mp3json = JSON.parse(mp3Info);
+            return { 
+                file: mp3, 
+                djName: mp3json['DJ'], 
+                date: mp3json['Air Date'], 
+                slot: mp3json['Slot']
+            };
+        }
+    }).filter(item => item !== null);
 }
 
 
@@ -111,5 +155,7 @@ module.exports = {
     getSceneMedia,
     readMacroFile,
     summariseMacros,
-    getCalendarFromMp3s,
+    getMp3Calendar,
+    isCalendarRefreshNeeded,
+    refreshCalendarFromMp3s,
 };
